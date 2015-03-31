@@ -150,13 +150,17 @@ class SummaryParser(object):
 
 
 class SummaryClient(object):
-    URL = "http://www.chicagoelections.com/ap/summary.txt"
+    DEFAULT_URL = "http://www.chicagoelections.com/ap/summary.txt"
 
-    def __init__(self):
+    def __init__(self, url=None):
+        if url is None:
+            url = self.DEFAULT_URL
+        self._url = url
+
         self._parser = SummaryParser()
 
     def get_url(self):
-        return self.URL
+        return self._url
 
     def fetch(self):
         url = self.get_url()

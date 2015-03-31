@@ -30,3 +30,7 @@ To access the results:
     rahm = next(c for c in mayor.candidates
                 if c.full_name == "RAHM EMANUEL")
     print(rahm.vote_total)
+
+If you want to specify an alternate url, for example the test URL, pass it to the constructor of `SummaryClient`:
+
+    client = SummaryClient(url='http://www.chicagoelections.com/results/ap/summary.txt')
