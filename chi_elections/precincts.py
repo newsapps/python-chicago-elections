@@ -47,4 +47,4 @@ if __name__ == '__main__':
     precincts = []
     for ward in range(1, 51):
         precincts.extend(get_precincts_for_ward(ward))
-        print precincts
+    print precincts
