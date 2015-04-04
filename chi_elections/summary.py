@@ -103,6 +103,9 @@ class Race(object):
         self.contest_code = contest_code
         self.name = name
         self.candidates = []
+        self.precincts_total = precincts_total
+        self.precincts_reporting = precincts_reporting
+        self.vote_for = vote_for
 
     def __str__(self):
         return self.name
