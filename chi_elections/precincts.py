@@ -23,7 +23,7 @@ def get_precincts_for_ward(ward):
             continue
         if precinct:
             precincts.append(precinct)
-        precinct = {'ward': int(ward)}
+        precinct = {}
         for td_idx, td in enumerate(tr.xpath('td')):
             if tr_idx == 1:
                 # This is the header row
@@ -33,7 +33,7 @@ def get_precincts_for_ward(ward):
                     # We're done, so exit
                     return precincts
                 else:
-                    precinct['Pct'] = int(td.text_content().strip())
+                    precinct['id'] = '%02d%03d' % (ward, int(td.text_content().strip()))
             elif headers[td_idx] == '%':
                 continue
             else:
@@ -47,4 +47,4 @@ if __name__ == '__main__':
     precincts = []
     for ward in range(1, 51):
         precincts.extend(get_precincts_for_ward(ward))
-    print precincts
+    print json.dumps(precincts)
