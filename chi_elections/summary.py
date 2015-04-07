@@ -31,7 +31,10 @@ class FixedWidthField(object):
         if self.transform is None:
             return val
         else:
-            return self.transform(val)
+            try:
+                return self.transform(val)
+            except ValueError:
+                return None
 
 
 class FixedWidthParserMeta(type):
