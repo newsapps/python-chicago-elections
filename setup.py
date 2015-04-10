@@ -29,7 +29,8 @@ setup(
     include_package_data=True,
     install_requires=[
         'requests',
-        'lxml'
+        'lxml',
+        'six'
     ],
     tests_require=[
         'nose',

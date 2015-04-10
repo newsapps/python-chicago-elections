@@ -6,7 +6,7 @@ chi-elections is a Python package for loading and parsing election results from 
 Summary Results
 ---------------
 
-The Board of Elections provides election-night results at a racewide level.  The file lives at 
+The Board of Elections provides election-night results at a racewide level.  The file lives at
 
 http://www.chicagoelections.com/results/ap/summary.txt
 
@@ -35,25 +35,25 @@ Candidate Name                  38      89-126
 Political subdivision name      25      127-151
 Vote For                        3       152-154
 
-### Gotchas 
+### Gotchas
 
 Prior to election night, the test file will include all fields.  At some point on election night, the file will only contain the numeric values in the first 22 columns.
 
 This means that you need to:
 
 * Make sure you save candidate names in some way, like a database, before election night
-* Make sure you store ballot order (Candidate Number in the text layout above) with the candidate.  You'll need to use this, in combination with Contest Code, to look up the cached candidates.  
+* Make sure you store ballot order (Candidate Number in the text layout above) with the candidate.  You'll need to use this, in combination with Contest Code, to look up the cached candidates.
 
 At some point at the end of election night, the results file will no longer be available at http://www.chicagoelections.com/ap/summary.txt and will be available at http://www.chicagoelections.com/results/ap/summary.txt
 .  However, it will not be updated. You'll need to scrape, enter or load results in some other way if you need updates after election night.
-  
+
 
 ### Results client
 
 To access the results:
 
     from chi_elections import SummaryClient
-    
+
     client = SummaryClient()
     client.fetch()
     mayor = next(r for r in client.races if r.name == "Mayor")
@@ -66,3 +66,24 @@ To access the results:
 If you want to specify an alternate url, for example the test URL, pass it to the constructor of `SummaryClient`:
 
     client = SummaryClient(url='http://www.chicagoelections.com/results/ap/summary.txt')
+
+
+Precinct Results
+----------------
+
+After election night, precinct-level results are published to http://www.chicagoelections.com/en/election3.asp.  The results are HTML files, so we have to scrape the results from HTML tables.
+
+### Results client
+
+To access the results:
+
+    from chi_elections import PrecinctClient
+
+    client = PrecinctClient()
+    client.fetch_elections()
+    election = next(e for e in client.elections
+                    if e.name == "2015 Municipal Runoffs - 4/7/15")
+    election.fetch_races()
+    race = next(r for r in client.races
+                if r.name == "Mayor")
+    race.fetch_results()
