@@ -31,7 +31,10 @@ class FixedWidthField(object):
         if self.transform is None:
             return val
         else:
-            return self.transform(val)
+            try:
+                return self.transform(val)
+            except ValueError:
+                return None
 
 
 class FixedWidthParserMeta(type):
@@ -103,6 +106,9 @@ class Race(object):
         self.contest_code = contest_code
         self.name = name
         self.candidates = []
+        self.precincts_total = precincts_total
+        self.precincts_reporting = precincts_reporting
+        self.vote_for = vote_for
 
     def __str__(self):
         return self.name

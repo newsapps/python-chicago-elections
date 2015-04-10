@@ -43,6 +43,7 @@ class FixedWidthFieldTestCase(TestCase):
         self.assertEqual(parsed, "Mayor")
 
 
+
 class ResultParserTestCase(TestCase):
     def test_parse_line(self):
         parser = ResultParser()
@@ -58,6 +59,21 @@ class ResultParserTestCase(TestCase):
         self.assertEqual(result['candidate_name'], "RAHM EMANUEL")
         self.assertEqual(result['reporting_unit_name'], "City Of Chicago")
         self.assertEqual(result['vote_for'], 1)
+
+    def test_parse_line_no_text(self):
+        parser = ResultParser()
+        line = "0010001206900000000000"
+        result = parser.parse_line(line)
+        self.assertEqual(result['contest_code'], 10)
+        self.assertEqual(result['candidate_number'], 1)
+        self.assertEqual(result['precincts_total'], 2069)
+        self.assertEqual(result['vote_total'], 0)
+        self.assertEqual(result['precincts_reporting'], 0)
+        self.assertEqual(result['party'], "")
+        self.assertEqual(result['race_name'], "")
+        self.assertEqual(result['candidate_name'], "")
+        self.assertEqual(result['reporting_unit_name'], "")
+        self.assertEqual(result['vote_for'], None)
 
 
 class SummaryClientTestCase(TestCase):
