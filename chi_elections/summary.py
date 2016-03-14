@@ -26,7 +26,12 @@ class FixedWidthField(object):
         self.name = None
 
     def parse(self, s):
-        val = s[self.index:self.index + self.length]
+        try:
+            s_decoded = s.decode('utf-8')
+        except UnicodeEncodeError:
+            s_decoded = s
+
+        val = s_decoded[self.index:self.index + self.length]
         val = val.strip()
         if self.transform is None:
             return val
