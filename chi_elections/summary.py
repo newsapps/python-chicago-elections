@@ -18,6 +18,9 @@ This file provides racewide results.
 """
 import requests
 
+from .constants import SUMMARY_URL
+from .transforms import replace_single_quotes
+
 class FixedWidthField(object):
     def __init__(self, index, length, transform=None):
         self.index = index
@@ -87,7 +90,7 @@ class ResultParser(FixedWidthParser):
     party = FixedWidthField(22, 3)
     reporting_unit_name = FixedWidthField(25, 7)
     race_name = FixedWidthField(32, 56)
-    candidate_name = FixedWidthField(88, 38)
+    candidate_name = FixedWidthField(88, 38, transform=replace_single_quotes)
     reporting_unit_name = FixedWidthField(126, 25)
     vote_for = FixedWidthField(151, 3, transform=int)
 
@@ -161,7 +164,7 @@ class SummaryParser(object):
 
 
 class SummaryClient(object):
-    DEFAULT_URL = "http://www.chicagoelections.com/ap/summary.txt"
+    DEFAULT_URL = SUMMARY_URL 
 
     def __init__(self, url=None):
         if url is None:
