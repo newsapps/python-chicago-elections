@@ -16,6 +16,8 @@ on election night.
 This file provides racewide results.
 
 """
+from collections import OrderedDict
+
 import requests
 
 from .constants import SUMMARY_URL
@@ -107,6 +109,14 @@ class Result(object):
     def __str__(self):
         return "{}: {}d".format(self.name, self.vote_total)
 
+    def serialize(self):
+        return OrderedDict((
+            ('candidate_number', self.candidate_number),
+            ('full_name', self.full_name),
+            ('party', self.party),
+            ('vote_total',self.vote_total),
+        ))
+
 
 class Race(object):
     def __init__(self, contest_code, name, precincts_total=0,
@@ -117,6 +127,15 @@ class Race(object):
         self.precincts_total = precincts_total
         self.precincts_reporting = precincts_reporting
         self.vote_for = vote_for
+
+    def serialize(self):
+        return OrderedDict((
+            ('contest_code', self.contest_code),
+            ('race_name', self.name),
+            ('precincts_total', self.precincts_total),
+            ('precincts_reporting', self.precincts_reporting),
+            ('vote_for', self.vote_for),
+        ))
 
     def __str__(self):
         return self.name

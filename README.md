@@ -66,3 +66,14 @@ To access the results:
 If you want to specify an alternate url, for example the test URL, pass it to the constructor of `SummaryClient`:
 
     client = SummaryClient(url='http://www.chicagoelections.com/results/ap/summary.txt')
+
+
+### Command Line Interface
+
+To download a CSV version of the summary file, run:
+
+    chi_elections summary > results.csv
+
+To hit the test file:
+
+    chi_elections summary --test > results.csv
