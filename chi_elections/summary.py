@@ -16,8 +16,11 @@ on election night.
 This file provides racewide results.
 
 """
+from collections import OrderedDict
+
 import requests
 
+from .constants import SUMMARY_URL
 from .transforms import replace_single_quotes
 
 class FixedWidthField(object):
@@ -89,7 +92,7 @@ class ResultParser(FixedWidthParser):
     party = FixedWidthField(22, 3)
     reporting_unit_name = FixedWidthField(25, 7)
     race_name = FixedWidthField(32, 56)
-    candidate_name = FixedWidthField(88, 38)
+    candidate_name = FixedWidthField(88, 38, transform=replace_single_quotes)
     reporting_unit_name = FixedWidthField(126, 25)
     vote_for = FixedWidthField(151, 3, transform=int)
 
@@ -106,6 +109,14 @@ class Result(object):
     def __str__(self):
         return "{}: {}d".format(self.name, self.vote_total)
 
+    def serialize(self):
+        return OrderedDict((
+            ('candidate_number', self.candidate_number),
+            ('full_name', self.full_name),
+            ('party', self.party),
+            ('vote_total',self.vote_total),
+        ))
+
 
 class Race(object):
     def __init__(self, contest_code, name, precincts_total=0,
@@ -116,6 +127,15 @@ class Race(object):
         self.precincts_total = precincts_total
         self.precincts_reporting = precincts_reporting
         self.vote_for = vote_for
+
+    def serialize(self):
+        return OrderedDict((
+            ('contest_code', self.contest_code),
+            ('race_name', self.name),
+            ('precincts_total', self.precincts_total),
+            ('precincts_reporting', self.precincts_reporting),
+            ('vote_for', self.vote_for),
+        ))
 
     def __str__(self):
         return self.name
@@ -163,7 +183,7 @@ class SummaryParser(object):
 
 
 class SummaryClient(object):
-    DEFAULT_URL = "http://www.chicagoelections.com/ap/summary.txt"
+    DEFAULT_URL = SUMMARY_URL 
 
     def __init__(self, url=None):
         if url is None:
