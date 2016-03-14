@@ -87,3 +87,13 @@ To access the results:
     race = next(r for r in client.races
                 if r.name == "Mayor")
     race.fetch_results()
+
+### Command Line Interface
+
+To download a CSV version of the summary file, run:
+
+    chi_elections summary > results.csv
+
+To hit the test file:
+
+    chi_elections summary --test > results.csv

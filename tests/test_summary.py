@@ -1,3 +1,4 @@
+# -*- coding=utf-8 -*-
 import os.path
 from unittest import TestCase
 
@@ -74,6 +75,21 @@ class ResultParserTestCase(TestCase):
         self.assertEqual(result['candidate_name'], "")
         self.assertEqual(result['reporting_unit_name'], "")
         self.assertEqual(result['vote_for'], None)
+
+    def test_parse_line_utf8(self):
+        parser = ResultParser()
+        line = "0023012034800000000000DEM       Delegate, National Convention 4th DEM                   Álvaro R. Obregón (Sanders)           4th Congressional Distric005"
+        result = parser.parse_line(line)
+        self.assertEqual(result['contest_code'], 23)
+        self.assertEqual(result['candidate_number'], 12)
+        self.assertEqual(result['precincts_total'], 348)
+        self.assertEqual(result['vote_total'], 0)
+        self.assertEqual(result['precincts_reporting'], 0)
+        self.assertEqual(result['party'], "DEM")
+        self.assertEqual(result['race_name'], "Delegate, National Convention 4th DEM")
+        self.assertEqual(result['candidate_name'], u"Álvaro R. Obregón (Sanders)")
+        self.assertEqual(result['reporting_unit_name'], "4th Congressional Distric")
+        self.assertEqual(result['vote_for'], 5)
 
 
 class SummaryClientTestCase(TestCase):

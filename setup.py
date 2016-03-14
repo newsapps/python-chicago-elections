@@ -31,7 +31,14 @@ setup(
         'requests',
         'lxml',
         'six'
+        'Click',
+        'backports.csv'
     ],
+    entry_points={
+        'console_scripts': (
+            'chi_elections = chi_elections.cli:main'
+        ),
+    },
     tests_require=[
         'nose',
         'responses',
