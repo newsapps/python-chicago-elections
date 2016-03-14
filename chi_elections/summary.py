@@ -18,6 +18,8 @@ This file provides racewide results.
 """
 import requests
 
+from .transforms import replace_single_quotes
+
 class FixedWidthField(object):
     def __init__(self, index, length, transform=None):
         self.index = index
