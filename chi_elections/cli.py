@@ -19,7 +19,7 @@ def summary(test):
     else:
         url = SUMMARY_URL
 
-    client = SummaryClient(url=url)    
+    client = SummaryClient(url=url)
     client.fetch()
     fieldnames = [
        'contest_code',
@@ -35,7 +35,7 @@ def summary(test):
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
     for race in client.races:
-        race_attrs = race.serialize() 
+        race_attrs = race.serialize()
         for candidate_result in race.candidates:
             row = dict(**race_attrs)
             row.update(candidate_result.serialize())
@@ -60,9 +60,19 @@ def precincts(elections, race):
     writer.writeheader()
     for election_id in elections:
         election = Election(elec_code=election_id)
-        if race is not None:
-            races_set = set([int(r) for r in race])
-            races = [r for r in election.races if r.number in races_set]
+        if len(race):
+            races_set = set()
+            for rid in race:
+                try:
+                    race_identifier = int(rid)
+                except ValueError:
+                    race_identifier = rid
+
+                races_set.add(race_identifier)
+
+            races = [r for r in election.races
+                     if r.number in races_set or r.name in races_set]
+
         else:
             races = election.races
 

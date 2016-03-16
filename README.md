@@ -97,3 +97,9 @@ To download a CSV version of the summary file, run:
 To hit the test file:
 
     chi_elections summary --test > results.csv
+
+To download precinct results, available the day after:
+
+    chi_elections precincts --race "Delegate, National Convention 4th DEM" 5
+
+In this example the `5` is the election code, that can be found in the URL when you visit a page like http://www.chicagoelections.com/en/wdlevel3.asp?elec_code=5
