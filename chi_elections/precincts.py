@@ -1,24 +1,35 @@
 """
 Parse tabular precinct-level results.
 """
+from collections import OrderedDict
 import json
 
 from lxml import html
 import requests
-from six.moves.urllib.parse import urlencode
+from six.moves.urllib.parse import urlencode, urlparse, parse_qs
+from six import text_type
 
+from chi_elections.transforms import replace_single_quotes
 
-class PrecinctParser(object):
+class BaseParser(object):
+    @classmethod
+    def clean_cell(cls, s):
+        return text_type(s).strip()
+
     def get_row_data(self, tr):
-        return [td.text_content().strip() for td in tr.xpath('td')]
+        return [self.clean_cell(td.text_content()) for td in tr.xpath('td')]
+
+    @classmethod
+    def clean_candidate_name(cls, s):
+        return replace_single_quotes(s)
 
     def parse_candidates(self, row):
         candidates = {}
         for i, val in enumerate(row):
-            if val in ("Pct", "%"):
+            if val in (self.reporting_unit_column_name, "%"):
                 continue
 
-            candidates[i] = val
+            candidates[i] = self.clean_candidate_name(val)
 
         return candidates
 
@@ -27,7 +38,7 @@ class PrecinctParser(object):
         result = None
         for i, val in enumerate(row):
             if i == 0:
-                precinct_num = val
+                reporting_unit_id = val
                 continue
 
             try:
@@ -36,7 +47,7 @@ class PrecinctParser(object):
                     # If a previous result has been built, add it to our list
                     results.append(result)
                 result = {
-                    'precinct': precinct_num,
+                    'reporting_unit_id': reporting_unit_id,
                     'candidate': candidate,
                     'votes': int(val),
                 }
@@ -53,7 +64,7 @@ class PrecinctParser(object):
     def parse(self, html_string):
         results = []
 
-        rows = html.fromstring(html_string).xpath('/html/body/table[1]/tr')
+        rows = html.fromstring(html_string).xpath('//table[1]/tr')
         candidate_lookup = None
         for tr_idx, tr in enumerate(rows):
             row = self.get_row_data(tr)
@@ -61,7 +72,7 @@ class PrecinctParser(object):
                 # This is a blank row, so skip
                 continue
 
-            if row[0] == 'Pct':
+            if row[0] == self.reporting_unit_column_name:
                 # This is the header row
                 if candidate_lookup is None:
                     candidate_lookup = self.parse_candidates(row)
@@ -71,6 +82,14 @@ class PrecinctParser(object):
             results.extend(row_results)
 
         return results
+
+
+class WardParser(BaseParser):
+    reporting_unit_column_name = 'Ward'
+
+
+class PrecinctParser(BaseParser):
+    reporting_unit_column_name = 'Pct'
 
 
 class ReportingUnit(object):
@@ -87,6 +106,8 @@ class ReportingUnit(object):
 
 
 class Ward(ReportingUnit):
+    level = 'ward'
+
     def __init__(self, number):
         super(Ward, self).__init__(number)
         self._precincts = {}
@@ -106,6 +127,8 @@ class Ward(ReportingUnit):
 
 
 class Precinct(ReportingUnit):
+    level = 'precinct'
+
     def __init__(self, number, ward):
         super(Precinct, self).__init__(number)
         self.ward = ward
@@ -130,17 +153,23 @@ class Candidate(object):
 
 
 class Election(object):
-    def __init__(self, name=None, number=None):
-        self.number = number
+    def __init__(self, elec_code, name=None, client=None):
+        self.elec_code = elec_code
         self.name = name
 
-        self._races_by_number = {}
-        self._races_by_name = {}
-        self._races = []
+        if client is None:
+            self.client = PrecinctClient()
+
+        self._races_by_number = None
+        self._races_by_name = None
+        self._races = None
 
     @property
     def races(self):
-        return self._races_by_number.values()
+        if self._races is None:
+            self.fetch_races()
+
+        return self._races
 
     def add_race(self, race):
         if race.number is not None:
@@ -158,8 +187,19 @@ class Election(object):
         return self._races_by_name[race_name]
 
     def fetch_races(self):
-        # TODO: Implement this
-        pass
+        race_html = self.client.fetch_election_html(self.elec_code)
+        option_els = html.fromstring(race_html).xpath(
+            "//select[@name='D3']/option")
+
+        self._races_by_number = {}
+        self._races_by_name = {}
+        self._races = []
+
+        for option_el in option_els:
+            race_name = option_el.get('value')
+            if not race_name:
+                continue
+            race = Race(self, name=race_name)
 
 
 class Race(object):
@@ -167,12 +207,73 @@ class Race(object):
         self.number = number
         self.name = name
         self.election = election
+        self.client = election.client
 
         election.add_race(self)
 
+        self._results = None
+        self._wards = None
+
+    def __str__(self):
+        if self.name and self.number:
+            return "{} ({})".format(self.name, self.number)
+        elif self.name:
+            return self.name
+        elif self.number:
+            return self.number
+        else:
+            return ""
+
+    @property
+    def results(self):
+        if self._results is None:
+            self._results = self.fetch_results()
+
+        return self._results
+
+    @property
+    def wards(self):
+        if self._wards is None:
+            self.fetch_wards()
+
+        return self._wards.values()
+
+    def fetch_wards(self):
+        ward_results_html = self.client.fetch_ward_results_html(
+            elec_code=self.election.elec_code,
+            race_name=self.name
+        )
+
+        if self.number is None:
+            first_ward_url = html.fromstring(ward_results_html).xpath('//a[1]')[0].get('href')
+            # TODO: Factor this out
+            query_string = urlparse(first_ward_url).query
+            query_string_parsed = parse_qs(query_string)
+            self.number = int(query_string_parsed['race_number'][0])
+
+        parser = WardParser()
+        results_attrs = parser.parse(ward_results_html)
+        self._wards = {}
+
+        for result_attrs in results_attrs:
+            if result_attrs['reporting_unit_id'] == "Total":
+                continue
+
+            ward_number = int(result_attrs['reporting_unit_id'])
+            self._wards.setdefault(ward_number, Ward(
+                number=ward_number,
+            ))
+
     def fetch_results(self):
-        # TODO: Implement this
-        pass
+        results = []
+        for ward in self.wards:
+            ward_results =  self.client.fetch_precinct_results(
+                elec_code=self.election.elec_code,
+                race=self,
+                ward_num=ward.number)
+            results.extend(ward_results)
+
+        return results
 
 
 class Result(object):
@@ -181,7 +282,7 @@ class Result(object):
         self.votes = votes
         self.reporting_unit = reporting_unit
         self.percent = percent
-        self.race = None
+        self.race = race
 
         self.reporting_unit.add_result(self)
 
@@ -194,24 +295,63 @@ class Result(object):
             repr(self.candidate), repr(self.reporting_unit), self.votes
         )
 
+    def serialize(self):
+        return OrderedDict((
+            ('race_name', self.race.name),
+            ('race_number', self.race.number),
+            ('candidate', self.candidate.name),
+            ('reporting_unit_level', self.reporting_unit.level),
+            ('reporting_unit_number', self.reporting_unit.number),
+            ('votes', self.votes),
+        ))
+
 
 class PrecinctClient(object):
     DEFAULT_PRECINCT_URL = 'http://www.chicagoelections.com/en/pctlevel3.asp'
+    DEFAULT_ELECTION_URL = 'http://www.chicagoelections.com/en/wdlevel3.asp'
 
-    def __init__(self, precinct_url=None):
+    def __init__(self, election_url=None, precinct_url=None):
+        if election_url is None:
+            election_url = self.DEFAULT_ELECTION_URL
+
+        self._election_url = election_url
+
         if precinct_url is None:
             precinct_url = self.DEFAULT_PRECINCT_URL
+
         self._precinct_url = precinct_url
+
         self._parser = PrecinctParser()
         self._wards = {}
         self._candidates_by_name = {}
 
+    def get_election_url(self, elec_code):
+        url = self._election_url
+        query_params = {
+            'elec_code': elec_code,
+        }
+        qs = urlencode(query_params)
+        return url + '?' + qs
+
+    def fetch_election_html(self, elec_code):
+        url = self.get_election_url(elec_code)
+        return requests.get(url).text
+
+    def fetch_ward_results_html(self, elec_code, race_name):
+        url = self.get_election_url(elec_code)
+        return requests.post(url, data={
+                'VTI-GROUP': 0,
+                'flag': 1,
+                'B1': 'View The Results',
+                'D3': race_name,
+            }).text
+
     def get_precinct_result_url(self, elec_code, race_number, ward):
         url = self._precinct_url
         query_params = {
-            'Ward': ward,
             'elec_code': elec_code,
             'race_number': race_number,
+            'Ward': ward,
         }
         qs = urlencode(query_params)
         return url + '?' + qs
@@ -239,71 +379,35 @@ class PrecinctClient(object):
         return Result(candidate, result_dict['votes'],
             percent=result_dict['percent'], reporting_unit=ward)
 
-    def create_result(self, result_dict, ward_num):
+    def create_result(self, result_dict, race, ward_num):
         ward = self.get_or_create_ward(ward_num)
-        if result_dict['precinct'] == 'Total':
+        if result_dict['reporting_unit_id'] == 'Total':
             reporting_unit = ward
         else:
-            reporting_unit = ward.get_or_create_precinct(result_dict['precinct'])
+            reporting_unit = ward.get_or_create_precinct(result_dict['reporting_unit_id'])
 
         candidate = self.get_or_create_candidate_by_name(result_dict['candidate'])
+
+        if isinstance(race, Race):
+            race_model = race
+        else:
+            race_model = Race(number=race)
 
         return Result(
             candidate=candidate,
             votes=result_dict['votes'],
             reporting_unit=reporting_unit,
-            percent=result_dict.get('percent', None)
+            percent=result_dict.get('percent', None),
+            race=race_model
         )
 
-    def fetch_precinct_results(self, elec_code, race_number, ward_num):
+    def fetch_precinct_results(self, elec_code, race, ward_num):
+        if isinstance(race, Race):
+            race_number = race.number
+        else:
+            race_number = race
+
         html_string = self.fetch_precinct_results_html(elec_code, race_number,
             ward_num)
         results = self._parser.parse(html_string)
-        return [self.create_result(rd, ward_num) for rd in results]
-
-# TODO: Remove this if Abe's not using it, or reimplement it using
-# PrecinctClient
-def get_precincts_for_ward(ward):
-    tmpl = 'http://www.chicagoelections.com/en/pctlevel3.asp?Ward=%d&elec_code=%s&race_number=%d'
-    precincts = []
-    # The 2015 mayoral primary code
-    election_code = 10
-    # Mayoral (primary?) race number
-    race_number = 10
-    precinct = {}
-
-    text = requests.get(tmpl % (ward, election_code, race_number)).text
-    for tr_idx, tr in enumerate(html.fromstring(text).xpath('/html/body/table[1]/tr')):
-        if tr_idx == 0:
-            # This is a blank row, so skip
-            headers = []
-            continue
-        if precinct:
-            precincts.append(precinct)
-        precinct = {}
-        for td_idx, td in enumerate(tr.xpath('td')):
-            if tr_idx == 1:
-                # This is the header row
-                headers.append(td.text_content().strip())
-            elif td_idx == 0:
-                if td.text_content() == 'Total':
-                    # We're done, so exit
-                    return precincts
-                else:
-                    precinct['id'] = '%02d%03d' % (ward, int(td.text_content().strip()))
-            elif headers[td_idx] == '%':
-                continue
-            else:
-                try:
-                    precinct[headers[td_idx]] = int(td.text_content().strip())
-                except:
-                    print 'Error with line %d, col %d (%s)' % (tr_idx, td_idx, headers[td_idx])
-                    precinct[headers[td_idx]] = 0
-
-if __name__ == '__main__':
-    # TODO: Remove this if Abe's not using it, or reimplement it using
-    # PrecinctClient
-    precincts = []
-    for ward in range(1, 51):
-        precincts.extend(get_precincts_for_ward(ward))
-    print json.dumps(precincts)
+        return [self.create_result(rd, race, ward_num) for rd in results]
