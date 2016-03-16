@@ -295,6 +295,22 @@ class Result(object):
             repr(self.candidate), repr(self.reporting_unit), self.votes
         )
 
+    @property
+    def ward_number(self):
+        if self.reporting_unit.level == "ward":
+            return self.reporting_unit.number
+        elif self.reporting_unit.level == "precinct":
+            return self.reporting_unit.ward.number
+        else:
+            return None
+
+    @property
+    def precinct_number(self):
+        if self.reporting_unit.level == "precinct":
+            return self.reporting_unit.number
+        else:
+            return None
+
     def serialize(self):
         return OrderedDict((
             ('race_name', self.race.name),
@@ -302,8 +318,8 @@ class Result(object):
             # HACK: Punt on unicode
             # TODO: Make this work right
             ('candidate', self.candidate.name.encode('ascii', 'replace')),
-            ('reporting_unit_level', self.reporting_unit.level),
-            ('reporting_unit_number', self.reporting_unit.number),
+            ('ward', self.ward_number),
+            ('precinct', self.precinct_number),
             ('votes', self.votes),
         ))
 

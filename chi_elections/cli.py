@@ -52,8 +52,8 @@ def precincts(elections, race):
        'race_name',
        'race_number',
        'candidate',
-       'reporting_unit_level',
-       'reporting_unit_number',
+       'ward',
+       'precinct',
        'votes',
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
