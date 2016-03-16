@@ -299,7 +299,9 @@ class Result(object):
         return OrderedDict((
             ('race_name', self.race.name),
             ('race_number', self.race.number),
-            ('candidate', self.candidate.name),
+            # HACK: Punt on unicode
+            # TODO: Make this work right
+            ('candidate', self.candidate.name.encode('ascii', 'replace')),
             ('reporting_unit_level', self.reporting_unit.level),
             ('reporting_unit_number', self.reporting_unit.number),
             ('votes', self.votes),
