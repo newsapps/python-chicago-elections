@@ -1,26 +1,44 @@
-from backports import csv
+import codecs
 import sys
+
+if sys.version_info < 3:
+    from backports import csv
+else:
+    import csv
 
 import click
 
 from .constants import SUMMARY_URL, TEST_SUMMARY_URL
-from .precincts import PrecinctClient, Election
-from .summary import SummaryClient
+from .precincts import Election
+from .summary import SummaryClient, SummaryParser
+
+if sys.version_info < 3:
+    # Wrap sys.stdout into a StreamWriter to allow writing unicode.
+    # See https://wiki.python.org/moin/PrintFails
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout)
 
 @click.group()
 def main():
     pass
 
 @click.command()
+@click.option('-f', '--file', type=click.File())
 @click.option('--test/--no-test', default=False)
-def summary(test):
+def summary(file, test):
     if test:
         url = TEST_SUMMARY_URL
     else:
         url = SUMMARY_URL
 
-    client = SummaryClient(url=url)
-    client.fetch()
+    if file:
+        parser = SummaryParser()
+        parser.parse(file.read())
+        races = parser.races
+    else:
+        client = SummaryClient(url=url)
+        client.fetch()
+        races = client.races
+
     fieldnames = [
        'contest_code',
        'race_name',
@@ -34,7 +52,7 @@ def summary(test):
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
-    for race in client.races:
+    for race in races:
         race_attrs = race.serialize()
         for candidate_result in race.candidates:
             row = dict(**race_attrs)

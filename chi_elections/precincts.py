@@ -2,7 +2,6 @@
 Parse tabular precinct-level results.
 """
 from collections import OrderedDict
-import json
 
 from lxml import html
 import requests
@@ -315,9 +314,7 @@ class Result(object):
         return OrderedDict((
             ('race_name', self.race.name),
             ('race_number', self.race.number),
-            # HACK: Punt on unicode
-            # TODO: Make this work right
-            ('candidate', self.candidate.name.encode('ascii', 'replace')),
+            ('candidate', self.candidate.name),
             ('ward', self.ward_number),
             ('precinct', self.precinct_number),
             ('votes', self.votes),
