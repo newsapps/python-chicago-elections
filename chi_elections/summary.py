@@ -178,9 +178,6 @@ class SummaryParser(object):
         
         return race
 
-    def parse_line(self, line):
-        return {}
-
 
 class SummaryClient(object):
     DEFAULT_URL = SUMMARY_URL 
