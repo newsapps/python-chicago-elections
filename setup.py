@@ -30,7 +30,7 @@ setup(
     install_requires=[
         'requests',
         'lxml',
-        'six'
+        'six',
         'Click',
         'backports.csv'
     ],
